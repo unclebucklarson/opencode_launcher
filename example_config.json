@@ -1,0 +1,7 @@
+{
+  "model": "qwen2.5-coder:32b",
+  "model_type": "local",
+  "directory": "~/src/project1",
+  "agent": "coding",
+  "terminal": "terminator"
+}
