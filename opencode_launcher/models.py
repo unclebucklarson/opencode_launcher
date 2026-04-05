@@ -18,6 +18,7 @@ from .constants import (
     OLLAMA_PS_ENDPOINT,
     OLLAMA_MAX_RETRIES,
     OLLAMA_RETRY_BACKOFF,
+    ZEN_MODELS_URL,
 )
 
 log = logging.getLogger(__name__)
@@ -132,8 +133,24 @@ def validate_local_model_constraint(
             f"Requested: '{requested_model}'. "
             f"Stop existing instances first, or use '{current}'."
         )
-    # Multiple models already running (shouldn't happen)
     return (
         f"Multiple local models detected ({', '.join(unique)}). "
         f"Please kill-all and start fresh."
     )
+
+
+def get_zen_models() -> list[str]:
+    """Fetch available models from OpenCode Zen API."""
+    try:
+        req = urllib.request.Request(
+            ZEN_MODELS_URL, headers={"User-Agent": "opencode-launcher/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode())
+                models = [m["id"] for m in data.get("data", [])]
+                models.sort()
+                return models
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, KeyError) as e:
+        log.error("Failed to fetch Zen models: %s", e)
+    return []

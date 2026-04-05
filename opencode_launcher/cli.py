@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 
 from . import __version__
-from .constants import BANNER, LOGS_DIR
+from .constants import BANNER, LOGS_DIR, OPENCODE_AUTH_FILE
 from .config import (
     load_config,
     validate_config,
@@ -51,6 +51,7 @@ from .models import (
     pull_ollama_model,
     remove_ollama_model,
     get_ollama_model_info,
+    get_zen_models,
 )
 from .terminals import detect_terminals, get_preferred_terminal, launch_in_terminal
 from .sessions import add_session, get_sessions, format_session, clear_sessions
@@ -111,6 +112,50 @@ def _bold(text: str) -> str:
     if _HAS_COLORAMA:
         return f"{C_Style.BRIGHT}{text}{C_Style.RESET_ALL}"
     return text
+
+
+def _check_zen_api_key() -> bool:
+    """Check if OpenCode Zen API key is configured. Returns True if set."""
+    if not OPENCODE_AUTH_FILE.exists():
+        return False
+    try:
+        auth = json.loads(OPENCODE_AUTH_FILE.read_text())
+        return bool(auth.get("opencode", {}).get("key"))
+    except (json.JSONDecodeError, KeyError):
+        return False
+
+
+def _prompt_zen_api_key() -> bool:
+    """Prompt user to enter Zen API key. Returns True if successful."""
+    print()
+    print(f"{_yellow('⚠️')} OpenCode Zen API key not configured.")
+    print(f"   Get your API key at: {_cyan('https://opencode.ai/auth')}")
+    print()
+
+    if not _ask_confirm("Would you like to enter your API key now?"):
+        print(f"{_red('❌')} Cannot launch cloud models without API key.")
+        return False
+
+    api_key = _ask_text("Enter your OpenCode Zen API key:")
+    if not api_key or not api_key.strip():
+        print(f"{_red('❌')} API key cannot be empty.")
+        return False
+
+    api_key = api_key.strip()
+
+    try:
+        OPENCODE_AUTH_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if OPENCODE_AUTH_FILE.exists():
+            auth = json.loads(OPENCODE_AUTH_FILE.read_text())
+        else:
+            auth = {}
+        auth["opencode"] = {"type": "api", "key": api_key}
+        OPENCODE_AUTH_FILE.write_text(json.dumps(auth, indent=2))
+        print(f"{_green('✅')} API key saved to {OPENCODE_AUTH_FILE}")
+        return True
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"{_red('❌')} Failed to save API key: {e}")
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -299,9 +344,18 @@ def cmd_launch(args):
                 return 1
             model = _ask_select_filtered("Select Ollama model:", choices=models)
         else:
-            model = _ask_text(
-                "Enter cloud model name (e.g., anthropic/claude-3.5-sonnet):"
-            )
+            if not _check_zen_api_key():
+                if not _prompt_zen_api_key():
+                    return 1
+            with Spinner("Fetching OpenCode Zen models..."):
+                zen_models = get_zen_models()
+            if not zen_models:
+                print(f"{_yellow('⚠️')} Could not fetch Zen models. Enter manually.")
+                model = _ask_text(
+                    "Enter cloud model name (e.g., anthropic/claude-3.5-sonnet):"
+                )
+            else:
+                model = _ask_select_filtered("Select Zen model:", choices=zen_models)
             if not model:
                 print(f"{_red('❌')} Model name is required.")
                 return 1
@@ -389,49 +443,65 @@ def cmd_launch(args):
             oc_cmd_parts.extend(["--model", model])
     oc_cmd = " ".join(oc_cmd_parts)
 
-    # For local models, ensure ~/.config/opencode/opencode.json has Ollama provider config
-    if model_type == "local" and model:
+    # Ensure ~/.config/opencode/opencode.json has provider config
+    if model:
         opencode_config_dir = Path.home() / ".config" / "opencode"
         opencode_json = opencode_config_dir / "opencode.json"
-        ollama_base_url = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")
-        # Ensure /v1 suffix for OpenAI-compatible endpoint
-        if not ollama_base_url.endswith("/v1"):
-            ollama_base_url = ollama_base_url.rstrip("/") + "/v1"
+
+        if model_type == "local":
+            ollama_base_url = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")
+            if not ollama_base_url.endswith("/v1"):
+                ollama_base_url = ollama_base_url.rstrip("/") + "/v1"
+            provider_id = "ollama"
+            provider_config = {
+                "npm": "@ai-sdk/openai-compatible",
+                "name": "Ollama (local)",
+                "options": {"baseURL": ollama_base_url},
+            }
+            model_id = model
+        else:
+            parts = model.split("/", 1)
+            if len(parts) == 2:
+                provider_id, model_id = parts
+            else:
+                provider_id = "opencode"
+                model_id = model
+            provider_config = {}
 
         if not opencode_json.exists():
-            ollama_config = {
+            config = {
                 "$schema": "https://opencode.ai/config.json",
                 "provider": {
-                    "ollama": {
-                        "npm": "@ai-sdk/openai-compatible",
-                        "name": "Ollama (local)",
-                        "options": {"baseURL": ollama_base_url},
-                        "models": {
-                            model: {"name": model},
-                        },
+                    provider_id: {
+                        **provider_config,
+                        "models": {model_id: {"name": model_id}},
                     },
                 },
             }
+            if provider_id == "ollama":
+                config["provider"][provider_id]["name"] = "Ollama (local)"
             try:
                 opencode_config_dir.mkdir(parents=True, exist_ok=True)
-                opencode_json.write_text(json.dumps(ollama_config, indent=2))
-                print(f"  ℹ️  Created {opencode_json} with Ollama config")
+                opencode_json.write_text(json.dumps(config, indent=2))
+                print(f"  ℹ️  Created {opencode_json} with {provider_id} provider")
             except IOError as e:
                 print(f"  ⚠️  Could not create opencode.json: {e}")
         else:
             try:
                 existing = json.loads(opencode_json.read_text())
-                providers = existing.get("provider", {})
-                if "ollama" in providers:
-                    ollama_provider = providers["ollama"]
-                    models = ollama_provider.get("models", {})
-                    if model not in models:
-                        models[model] = {"name": model}
-                        ollama_provider["models"] = models
-                        opencode_json.write_text(json.dumps(existing, indent=2))
-                        print(f"  ℹ️  Added model '{model}' to Ollama provider config")
-                else:
-                    print(f"  ⚠️  {opencode_json} exists but no Ollama provider")
+                providers = existing.setdefault("provider", {})
+                prov = providers.setdefault(provider_id, {})
+                if provider_config:
+                    for key, val in provider_config.items():
+                        if key not in prov:
+                            prov[key] = val
+                models = prov.setdefault("models", {})
+                if model_id not in models:
+                    models[model_id] = {"name": model_id}
+                    opencode_json.write_text(json.dumps(existing, indent=2))
+                    print(
+                        f"  ℹ️  Added model '{model_id}' to {provider_id} provider config"
+                    )
             except (json.JSONDecodeError, IOError) as e:
                 print(f"  ⚠️  Could not update opencode.json: {e}")
 

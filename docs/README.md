@@ -69,7 +69,7 @@ That's it. You're dangerous now. For the full story, keep reading.
 | Requirement | Details |
 |---|---|
 | Python | 3.10+ |
-| Terminal | terminator, gnome-terminal, konsole, or xterm |
+| Terminal | gnome-terminal, konsole, kitty, or xterm |
 | OpenCode | Installed and in PATH ([opencode.ai](https://opencode.ai)) |
 | Ollama | Required for local models ([ollama.ai](https://ollama.ai)) |
 | OS | Linux (terminal detection relies on Linux emulators) |
@@ -87,7 +87,7 @@ opencode_launcher/                  # Source code
 ├── sessions.py                     # Session history management
 ├── instances.py                    # Running instance tracking
 ├── agents.py                       # Agent template parsing
-├── constants.py                    # Paths, URLs, preferences
+├── constants.py                    # Paths, URLs, terminal preferences
 ├── install.sh                      # Installer script
 ├── setup.py                        # Python package setup
 └── docs/                           # 📍 You are here
@@ -100,8 +100,12 @@ opencode_launcher/                  # Source code
 │   ├── qa.md
 │   └── technical-writer.md
 ├── sessions.json                   # Last 10 session history
-├── instances.json                  # Currently running instances
-└── config.json                     # Default config (optional)
+├── instances.json                  # Currently running instances (PID-tracked)
+├── stopped_instances.json          # Stopped instances for restart
+├── config.json                     # Default config (optional)
+├── .env                            # Environment overrides (optional)
+├── presets/                        # Named config presets
+└── logs/                           # Instance output logs
 ```
 
 ---

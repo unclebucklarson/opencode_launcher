@@ -48,7 +48,7 @@ Here's what you'd normally deal with **without** it:
 - **📋 Agent Templates** — 5 built-in personas (Analyst, QA, Coding, General, Technical Writer) + drop-in custom agents
 - **💾 Session History** — Automatically saves your last 10 launches for instant resume
 - **📊 Instance Tracking** — Real-time status, per-instance stop, or kill-all — stale PIDs cleaned automatically
-- **🖥️ Terminal Detection** — Auto-detects terminator, gnome-terminal, konsole, xterm
+- **🖥️ Terminal Detection** — Auto-detects gnome-terminal, konsole, kitty, xterm
 - **🎨 Interactive TUI** — Beautiful prompts via `questionary` with full CLI-flag fallback
 - **📁 Config Files** — JSON configs for repeatable, shareable project setups
 - **🔄 Session Resume** — Pick up where you left off, or replay settings in a new directory with `--new_location`
@@ -92,10 +92,14 @@ oc launch -m qwen2.5-coder:32b -d ~/src/backend-api -a qa
 ### ☁️ Cloud model — frontend work
 ```bash
 # Use a cloud model with the explicit --model-type cloud flag
-oc launch -m anthropic/claude-3.5-sonnet --model-type cloud -d ~/src/frontend-app -a coding
+# Interactive selection shows available Zen models
+oc launch --model-type cloud -d ~/src/frontend-app -a coding
+
+# Or specify a Zen model directly
+oc launch -m claude-sonnet-4-5 --model-type cloud -d ~/src/frontend-app -a coding
 ```
 
-> 💡 **Tip:** When using cloud models, always pass `--model-type cloud` so the launcher skips Ollama validation and sends the model name directly to OpenCode.
+> 💡 **Tip:** Cloud models are fetched from OpenCode Zen. Get your API key at https://opencode.ai/auth
 
 ### Launch from a config file
 ```bash
@@ -139,7 +143,7 @@ python -m opencode_launcher launch
 
 - Python 3.10+
 - `questionary` (installed automatically)
-- A terminal emulator (terminator, gnome-terminal, konsole, or xterm)
+- A terminal emulator (gnome-terminal, konsole, kitty, or xterm)
 - [OpenCode](https://opencode.ai) installed and in PATH
 - [Ollama](https://ollama.ai) (for local models only)
 
@@ -152,7 +156,7 @@ python -m opencode_launcher launch
 | Command | Description |
 |---------|-------------|
 | `oc launch` | Launch new OpenCode instance(s) |
-| `oc status` | Show all running instances (auto-cleans stale PIDs) |
+| `oc status` | Show running Ollama models (queries Ollama API) |
 | `oc stop [id]` | Stop a specific instance (interactive if no ID) |
 | `oc kill-all` | Terminate all running instances |
 | `oc resume` | Resume from session history |
@@ -172,8 +176,8 @@ oc launch
 # Local model
 oc launch -m qwen2.5-coder:32b -d ~/src/project -a coding
 
-# Cloud model (explicit --model-type cloud)
-oc launch -m anthropic/claude-3.5-sonnet --model-type cloud -d ~/src/project -a coding
+# Cloud model (Zen models fetched from opencode.ai)
+oc launch -m claude-sonnet-4-5 --model-type cloud -d ~/src/project -a coding
 
 # Multiple instances
 oc launch -m qwen2.5-coder:32b -d ~/src/project -n 3

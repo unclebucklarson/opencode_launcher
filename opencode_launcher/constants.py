@@ -17,12 +17,16 @@ PRESETS_DIR = CONFIG_DIR / "presets"
 LOGS_DIR = CONFIG_DIR / "logs"
 ENV_FILE = CONFIG_DIR / ".env"
 
+OPENCODE_AUTH_FILE = Path.home() / ".local" / "share" / "opencode" / "auth.json"
+
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")
 OLLAMA_TAGS_ENDPOINT = f"{OLLAMA_API_URL}/api/tags"
 OLLAMA_PULL_ENDPOINT = f"{OLLAMA_API_URL}/api/pull"
 OLLAMA_DELETE_ENDPOINT = f"{OLLAMA_API_URL}/api/delete"
 OLLAMA_SHOW_ENDPOINT = f"{OLLAMA_API_URL}/api/show"
 OLLAMA_PS_ENDPOINT = f"{OLLAMA_API_URL}/api/ps"
+
+ZEN_MODELS_URL = "https://opencode.ai/zen/v1/models"
 
 MAX_SESSIONS = 10
 OLLAMA_MAX_RETRIES = 3
