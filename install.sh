@@ -17,7 +17,7 @@ echo "✅ Python ${PY_VERSION} detected"
 
 # 2. Install dependencies
 echo "📦 Installing Python dependencies..."
-pip install --quiet questionary
+python3 -m pip install --quiet questionary
 echo "✅ Dependencies installed"
 
 # 3. Create config directories

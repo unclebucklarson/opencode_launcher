@@ -2,6 +2,7 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Terminal detection and launching."""
+
 import logging
 import shutil
 import subprocess
@@ -46,34 +47,54 @@ def build_launch_command(
         return [
             "terminator",
             "--new-tab",
-            "-T", title,
-            "-x", f"cd {wd} && {opencode_cmd}; exec bash",
+            "-T",
+            title,
+            "-x",
+            "bash",
+            "-c",
+            f"cd '{wd}' && {opencode_cmd}; exec bash",
         ]
     elif terminal == "gnome-terminal":
         return [
             "gnome-terminal",
-            "--title", title,
-            "--working-directory", wd,
-            "--", "bash", "-c", f"{opencode_cmd}; exec bash",
+            "--title",
+            title,
+            "--working-directory",
+            wd,
+            "--",
+            "bash",
+            "-c",
+            f"{opencode_cmd}; exec bash",
         ]
     elif terminal == "konsole":
         return [
             "konsole",
-            "--workdir", wd,
-            "-p", f"tabtitle={title}",
-            "-e", "bash", "-c", f"{opencode_cmd}; exec bash",
+            "--workdir",
+            wd,
+            "-p",
+            f"tabtitle={title}",
+            "-e",
+            "bash",
+            "-c",
+            f"{opencode_cmd}; exec bash",
         ]
     elif terminal == "xterm":
         return [
             "xterm",
-            "-T", title,
-            "-e", f"cd {wd} && {opencode_cmd}; exec bash",
+            "-T",
+            title,
+            "-e",
+            "bash",
+            "-c",
+            f"cd '{wd}' && {opencode_cmd}; exec bash",
         ]
     else:
-        # Fallback: try to use x-terminal-emulator
         return [
             terminal,
-            "-e", f"cd {wd} && {opencode_cmd}; exec bash",
+            "-e",
+            "bash",
+            "-c",
+            f"cd '{wd}' && {opencode_cmd}; exec bash",
         ]
 
 

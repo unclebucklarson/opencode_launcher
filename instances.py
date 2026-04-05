@@ -2,6 +2,8 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Instance tracking - manage running OpenCode instances."""
+
+import fcntl
 import json
 import logging
 import os
@@ -26,7 +28,11 @@ def _load() -> dict:
     _ensure_file()
     try:
         with open(INSTANCES_FILE) as f:
-            return json.load(f)
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                return json.load(f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
     except (json.JSONDecodeError, IOError):
         return {}
 
@@ -34,7 +40,12 @@ def _load() -> dict:
 def _save(data: dict):
     _ensure_file()
     with open(INSTANCES_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump(data, f, indent=2)
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def is_pid_alive(pid: int) -> bool:
@@ -46,10 +57,36 @@ def is_pid_alive(pid: int) -> bool:
         return False
 
 
+def is_pid_alive_and_same(pid: int, start_time: Optional[str] = None) -> bool:
+    """Check if PID is alive and (optionally) started after the given time.
+
+    This helps detect PID reuse: if the process at this PID started before
+    our recorded start_time, it's a different process.
+    """
+    if not is_pid_alive(pid):
+        return False
+    if start_time is None:
+        return True
+    try:
+        dt = datetime.fromisoformat(start_time)
+        proc_boot = datetime.fromtimestamp(
+            os.path.getmtime(f"/proc/{pid}"), tz=timezone.utc
+        )
+        # If the process inode/boot is older than our record, it's a reused PID
+        return proc_boot >= dt
+    except (OSError, ValueError):
+        # Can't verify — assume alive
+        return True
+
+
 def cleanup_stale():
     """Remove instances whose PIDs are no longer running."""
     data = _load()
-    stale = [iid for iid, info in data.items() if not is_pid_alive(info.get("pid", -1))]
+    stale = [
+        iid
+        for iid, info in data.items()
+        if not is_pid_alive_and_same(info.get("pid", -1), info.get("start_time"))
+    ]
     for iid in stale:
         log.info("Cleaning stale instance: %s (PID %s)", iid, data[iid].get("pid"))
         del data[iid]
@@ -99,10 +136,13 @@ def stop_instance(instance_id: str) -> tuple[bool, str]:
         return False, f"Instance '{instance_id}' not found."
     info = data[instance_id]
     pid = info.get("pid", -1)
-    if not is_pid_alive(pid):
+    if not is_pid_alive_and_same(pid, info.get("start_time")):
         del data[instance_id]
         _save(data)
-        return True, f"Instance '{instance_id}' was already stopped (stale). Cleaned up."
+        return (
+            True,
+            f"Instance '{instance_id}' was already stopped (stale). Cleaned up.",
+        )
     try:
         os.kill(pid, signal.SIGTERM)
         del data[instance_id]
@@ -118,7 +158,7 @@ def kill_all() -> list[str]:
     messages = []
     for iid, info in list(data.items()):
         pid = info.get("pid", -1)
-        if is_pid_alive(pid):
+        if is_pid_alive_and_same(pid, info.get("start_time")):
             try:
                 os.kill(pid, signal.SIGTERM)
                 messages.append(f"Killed '{iid}' (PID {pid})")
@@ -155,7 +195,11 @@ def format_instance(instance_id: str, info: dict) -> str:
     agent = info.get("agent", "?")
     terminal = info.get("terminal", "?")
     start = info.get("start_time", "?")
-    alive = "🟢 running" if is_pid_alive(pid) else "🔴 stopped"
+    alive = (
+        "🟢 running"
+        if is_pid_alive_and_same(pid, info.get("start_time"))
+        else "🔴 stopped"
+    )
     try:
         dt = datetime.fromisoformat(start)
         start_str = dt.strftime("%Y-%m-%d %H:%M")

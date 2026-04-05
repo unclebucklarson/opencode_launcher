@@ -18,6 +18,7 @@ Usage:
     oc list-agents                     # Show agent templates
     oc list-models                     # Show Ollama models
 """
+
 import argparse
 import logging
 import sys
@@ -26,12 +27,20 @@ from pathlib import Path
 from . import __version__
 from .constants import BANNER
 from .config import load_config, validate_config, ensure_dirs
-from .models import is_ollama_running, get_ollama_models, validate_local_model_constraint
+from .models import (
+    is_ollama_running,
+    get_ollama_models,
+    validate_local_model_constraint,
+)
 from .terminals import detect_terminals, get_preferred_terminal, launch_in_terminal
 from .sessions import add_session, get_sessions, format_session
 from .instances import (
-    add_instance, get_instances, stop_instance, kill_all,
-    format_instance, get_running_local_models,
+    add_instance,
+    get_instances,
+    stop_instance,
+    kill_all,
+    format_instance,
+    get_running_local_models,
 )
 from .agents import list_agents, get_agent_slugs, get_agent_path, format_agent
 
@@ -46,14 +55,16 @@ try:
     import questionary
     from questionary import Style
 
-    _Q_STYLE = Style([
-        ("qmark", "fg:cyan bold"),
-        ("question", "bold"),
-        ("answer", "fg:green bold"),
-        ("pointer", "fg:cyan bold"),
-        ("highlighted", "fg:cyan bold"),
-        ("selected", "fg:green"),
-    ])
+    _Q_STYLE = Style(
+        [
+            ("qmark", "fg:cyan bold"),
+            ("question", "bold"),
+            ("answer", "fg:green bold"),
+            ("pointer", "fg:cyan bold"),
+            ("highlighted", "fg:cyan bold"),
+            ("selected", "fg:green"),
+        ]
+    )
     _HAS_QUESTIONARY = True
 except ImportError:
     pass
@@ -62,7 +73,14 @@ except ImportError:
 def _ask_select(message: str, choices: list[str], default: str | None = None) -> str:
     """Prompt user to select from a list."""
     if _HAS_QUESTIONARY:
-        return questionary.select(message, choices=choices, default=default, style=_Q_STYLE).ask()
+        kwargs = {"message": message, "choices": choices, "style": _Q_STYLE}
+        if default is not None and default in choices:
+            kwargs["default"] = default
+        result = questionary.select(**kwargs).ask()
+        if result is None:
+            print("\n❌ Aborted.")
+            sys.exit(0)
+        return result
     print(f"\n{message}")
     for i, c in enumerate(choices):
         print(f"  [{i}] {c}")
@@ -72,23 +90,40 @@ def _ask_select(message: str, choices: list[str], default: str | None = None) ->
             if 0 <= idx < len(choices):
                 return choices[idx]
         except (ValueError, EOFError):
-            pass
+            print("\n❌ Aborted.")
+            sys.exit(0)
         print("Invalid selection, try again.")
 
 
 def _ask_text(message: str, default: str = "") -> str:
     """Prompt user for text input."""
     if _HAS_QUESTIONARY:
-        return questionary.text(message, default=default, style=_Q_STYLE).ask()
-    result = input(f"{message} [{default}]: ").strip()
+        result = questionary.text(message, default=default, style=_Q_STYLE).ask()
+        if result is None:
+            print("\n❌ Aborted.")
+            sys.exit(0)
+        return result
+    try:
+        result = input(f"{message} [{default}]: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n❌ Aborted.")
+        sys.exit(0)
     return result if result else default
 
 
 def _ask_confirm(message: str, default: bool = True) -> bool:
     """Prompt user for yes/no."""
     if _HAS_QUESTIONARY:
-        return questionary.confirm(message, default=default, style=_Q_STYLE).ask()
-    yn = input(f"{message} [{'Y/n' if default else 'y/N'}]: ").strip().lower()
+        result = questionary.confirm(message, default=default, style=_Q_STYLE).ask()
+        if result is None:
+            print("\n❌ Aborted.")
+            sys.exit(0)
+        return result
+    try:
+        yn = input(f"{message} [{'Y/n' if default else 'y/N'}]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print("\n❌ Aborted.")
+        sys.exit(0)
     if not yn:
         return default
     return yn in ("y", "yes")
@@ -98,6 +133,7 @@ def _ask_confirm(message: str, default: bool = True) -> bool:
 # Command implementations
 # ---------------------------------------------------------------------------
 
+
 def cmd_launch(args):
     """Launch a new OpenCode instance."""
     ensure_dirs()
@@ -106,13 +142,14 @@ def cmd_launch(args):
     config_data = {}
     if args.config:
         config_data = load_config(args.config)
-        if not config_data:
+        if config_data is None:
             print(f"❌ Could not load config: {args.config}")
             return 1
         errors = validate_config(config_data)
         if errors:
             for e in errors:
-                print(f"  ⚠️  {e}")
+                print(f"  ❌ {e}")
+            return 1
 
     # --- Determine model type ---
     model_type = args.model_type or config_data.get("model_type")
@@ -133,11 +170,15 @@ def cmd_launch(args):
                 return 1
             models = get_ollama_models()
             if not models:
-                print("❌ No models found in Ollama. Pull one with: ollama pull <model>")
+                print(
+                    "❌ No models found in Ollama. Pull one with: ollama pull <model>"
+                )
                 return 1
             model = _ask_select("Select Ollama model:", choices=models)
         else:
-            model = _ask_text("Enter cloud model name (e.g., anthropic/claude-3.5-sonnet):")
+            model = _ask_text(
+                "Enter cloud model name (e.g., anthropic/claude-3.5-sonnet):"
+            )
             if not model:
                 print("❌ Model name is required.")
                 return 1
@@ -196,6 +237,9 @@ def cmd_launch(args):
 
     # --- Number of instances ---
     count = args.count or 1
+    if count < 1:
+        print("❌ Instance count must be at least 1.")
+        return 1
 
     # --- Build OpenCode command ---
     oc_cmd_parts = ["opencode"]
@@ -203,8 +247,9 @@ def cmd_launch(args):
         agent_path = get_agent_path(agent_slug)
         if agent_path:
             oc_cmd_parts.extend(["--agent", str(agent_path)])
-    # Note: OpenCode model config is handled via its own config, not CLI flags typically.
-    # We set it via environment or config file. For now, include as info.
+    # Pass model to OpenCode so it knows which model to use
+    if model:
+        oc_cmd_parts.extend(["--model", model])
     oc_cmd = " ".join(oc_cmd_parts)
 
     print(f"\n🚀 Launching {count} instance(s)...")
@@ -215,13 +260,15 @@ def cmd_launch(args):
     print()
 
     for i in range(count):
-        title = f"OpenCode [{i+1}/{count}] - {agent_slug or 'default'} @ {Path(directory).name}"
+        title = f"OpenCode [{i + 1}/{count}] - {agent_slug or 'default'} @ {Path(directory).name}"
         pid = launch_in_terminal(terminal, title, directory, oc_cmd)
         if pid:
-            iid = add_instance(pid, model, directory, agent_slug or "", terminal, model_type)
+            iid = add_instance(
+                pid, model, directory, agent_slug or "", terminal, model_type
+            )
             print(f"  ✅ Instance {iid} started (PID {pid})")
         else:
-            print(f"  ❌ Failed to launch instance {i+1}")
+            print(f"  ❌ Failed to launch instance {i + 1}")
 
     # Record session
     add_session(model, directory, agent_slug or "", terminal, model_type)
@@ -250,8 +297,10 @@ def cmd_stop(args):
         if not instances:
             print("No running instances.")
             return 0
-        choices = [f"{iid} - {info.get('model', '?')} @ {info.get('directory', '?')}"
-                   for iid, info in instances.items()]
+        choices = [
+            f"{iid} - {info.get('model', '?')} @ {info.get('directory', '?')}"
+            for iid, info in instances.items()
+        ]
         selected = _ask_select("Select instance to stop:", choices=choices)
         instance_id = selected.split(" - ")[0].strip()
     else:
@@ -264,7 +313,8 @@ def cmd_stop(args):
 
 def cmd_kill_all(args):
     """Kill all running instances."""
-    if not _ask_confirm("Kill ALL running instances?", default=False):
+    confirmed = _ask_confirm("Kill ALL running instances?", default=False)
+    if not confirmed:
         print("Aborted.")
         return 0
     messages = kill_all()
@@ -285,7 +335,14 @@ def cmd_resume(args):
 
     choices = [format_session(s, i) for i, s in enumerate(sessions)]
     selected = _ask_select("Select session to resume:", choices=choices)
-    idx = int(selected.split("]")[0].replace("[", "").strip())
+    try:
+        idx = int(selected.split("]")[0].replace("[", "").strip())
+        if idx < 0 or idx >= len(sessions):
+            print("❌ Invalid session selection.")
+            return 1
+    except (ValueError, IndexError):
+        print("❌ Invalid session selection.")
+        return 1
     session = sessions[idx]
 
     # Apply new location if requested
@@ -322,7 +379,7 @@ def cmd_list_agents(args):
         return 0
     print("\n📋 Available Agents:\n")
     print(f"  {'SLUG':20s} {'NAME':25s} DESCRIPTION")
-    print(f"  {'─'*20} {'─'*25} {'─'*40}")
+    print(f"  {'─' * 20} {'─' * 25} {'─' * 40}")
     for a in agents:
         print(format_agent(a))
     print()
@@ -348,6 +405,7 @@ def cmd_list_models(args):
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -375,27 +433,40 @@ def build_parser() -> argparse.ArgumentParser:
     p_launch = sub.add_parser("launch", help="Launch new OpenCode instance(s)")
     p_launch.add_argument("-c", "--config", help="Path to JSON config file")
     p_launch.add_argument("-m", "--model", help="Model name")
-    p_launch.add_argument("--model-type", dest="model_type", choices=["local", "cloud"],
-                          help="Model type: local (Ollama) or cloud")
+    p_launch.add_argument(
+        "--model-type",
+        dest="model_type",
+        choices=["local", "cloud"],
+        help="Model type: local (Ollama) or cloud",
+    )
     p_launch.add_argument("-d", "--dir", help="Working directory")
     p_launch.add_argument("-a", "--agent", help="Agent template slug")
     p_launch.add_argument("-t", "--terminal", help="Terminal emulator to use")
-    p_launch.add_argument("-n", "--count", type=int, default=1,
-                          help="Number of instances to launch (default: 1)")
+    p_launch.add_argument(
+        "-n",
+        "--count",
+        type=int,
+        default=1,
+        help="Number of instances to launch (default: 1)",
+    )
 
     # status
     sub.add_parser("status", help="Show all running instances")
 
     # stop
     p_stop = sub.add_parser("stop", help="Stop a specific instance")
-    p_stop.add_argument("instance_id", nargs="?", help="Instance ID (interactive if omitted)")
+    p_stop.add_argument(
+        "instance_id", nargs="?", help="Instance ID (interactive if omitted)"
+    )
 
     # kill-all
     sub.add_parser("kill-all", help="Stop ALL running instances")
 
     # resume
     p_resume = sub.add_parser("resume", help="Resume from session history")
-    p_resume.add_argument("--new_location", help="Apply session settings to this new directory")
+    p_resume.add_argument(
+        "--new_location", help="Apply session settings to this new directory"
+    )
 
     # list-agents
     sub.add_parser("list-agents", help="Show available agent templates")

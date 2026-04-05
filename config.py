@@ -2,6 +2,7 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Configuration management for OpenCode Launcher."""
+
 import json
 import logging
 from pathlib import Path
@@ -18,13 +19,13 @@ def ensure_dirs():
     AGENTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_config(path: Optional[str] = None) -> dict:
-    """Load a JSON config file. Returns empty dict if not found."""
+def load_config(path: Optional[str] = None) -> Optional[dict]:
+    """Load a JSON config file. Returns None if not found, empty dict if file is empty."""
     config_path = Path(path) if path else DEFAULT_CONFIG_FILE
     config_path = config_path.expanduser().resolve()
     if not config_path.exists():
         log.debug("Config file not found: %s", config_path)
-        return {}
+        return None
     try:
         with open(config_path) as f:
             data = json.load(f)
@@ -32,7 +33,7 @@ def load_config(path: Optional[str] = None) -> dict:
         return data
     except (json.JSONDecodeError, IOError) as e:
         log.error("Failed to load config %s: %s", config_path, e)
-        return {}
+        return None
 
 
 def save_config(data: dict, path: Optional[str] = None):

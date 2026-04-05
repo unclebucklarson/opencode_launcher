@@ -2,6 +2,8 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Session management - track last N sessions for resume."""
+
+import fcntl
 import json
 import logging
 from datetime import datetime, timezone
@@ -24,7 +26,11 @@ def load_sessions() -> list[dict]:
     _ensure_file()
     try:
         with open(SESSIONS_FILE) as f:
-            return json.load(f)
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                return json.load(f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
     except (json.JSONDecodeError, IOError):
         return []
 
@@ -34,10 +40,17 @@ def save_sessions(sessions: list[dict]):
     _ensure_file()
     trimmed = sessions[-MAX_SESSIONS:]
     with open(SESSIONS_FILE, "w") as f:
-        json.dump(trimmed, f, indent=2)
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump(trimmed, f, indent=2)
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def add_session(model: str, directory: str, agent: str, terminal: str, model_type: str = "local"):
+def add_session(
+    model: str, directory: str, agent: str, terminal: str, model_type: str = "local"
+):
     """Record a new session."""
     sessions = load_sessions()
     session = {
