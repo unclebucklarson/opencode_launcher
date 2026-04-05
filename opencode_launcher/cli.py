@@ -386,33 +386,42 @@ def cmd_launch(args):
         oc_cmd_parts.extend(["--model", model])
     oc_cmd = " ".join(oc_cmd_parts)
 
-    # For local models, ensure .opencode.json has Ollama provider config
+    # For local models, ensure ~/.config/opencode/opencode.json has Ollama provider config
     if model_type == "local" and model:
-        opencode_json = Path(directory) / ".opencode.json"
+        opencode_config_dir = Path.home() / ".config" / "opencode"
+        opencode_json = opencode_config_dir / "opencode.json"
+        ollama_base_url = os.environ.get("OLLAMA_API_URL", "http://localhost:11434")
+        # Ensure /v1 suffix for OpenAI-compatible endpoint
+        if not ollama_base_url.endswith("/v1"):
+            ollama_base_url = ollama_base_url.rstrip("/") + "/v1"
+
         if not opencode_json.exists():
-            # Try using ollama as the provider name if supported, otherwise use openai
             ollama_config = {
-                "agents": {"coder": {"model": model}},
-                "providers": {
-                    "ollama": {"url": "http://localhost:11434"},
-                    "openai": {
-                        "apiKey": "dummy",
-                        "baseURL": "http://localhost:11434/v1",
+                "$schema": "https://opencode.ai/config.json",
+                "provider": {
+                    "ollama": {
+                        "npm": "@ai-sdk/openai-compatible",
+                        "name": "Ollama (local)",
+                        "options": {"baseURL": ollama_base_url},
+                        "models": {
+                            model: {"name": model},
+                        },
                     },
                 },
             }
             try:
+                opencode_config_dir.mkdir(parents=True, exist_ok=True)
                 opencode_json.write_text(json.dumps(ollama_config, indent=2))
                 print(f"  ℹ️  Created {opencode_json} with Ollama config")
             except IOError as e:
-                print(f"  ⚠️  Could not create .opencode.json: {e}")
+                print(f"  ⚠️  Could not create opencode.json: {e}")
         else:
             try:
                 existing = json.loads(opencode_json.read_text())
+                providers = existing.get("provider", {})
                 has_ollama = any(
-                    "localhost:11434" in str(v.get("url", ""))
-                    or "localhost:11434" in str(v.get("baseURL", ""))
-                    for v in existing.get("providers", {}).values()
+                    "localhost:11434" in str(v.get("options", {}).get("baseURL", ""))
+                    for v in providers.values()
                 )
                 if not has_ollama:
                     print(f"  ⚠️  {opencode_json} exists but no Ollama provider")
