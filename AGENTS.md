@@ -51,9 +51,8 @@ Env vars: `OC_CONFIG_DIR`, `OLLAMA_API_URL` (default `http://localhost:11434`).
 
 - **Single-model constraint (local only):** All running Ollama instances must use the same model. Launch is rejected if it would cause a model swap. Cloud models are exempt.
 - **Cloud models require `--model-type cloud`:** Without this flag the launcher treats the model as local and tries to validate against Ollama.
-- **Terminal detection order:** terminator > gnome-terminal > konsole > kitty > xterm. If only one is found, it's used automatically.
+- **Terminal detection order:** gnome-terminal > konsole > kitty > x-terminal-emulator > xterm. If only one is found, it's used automatically.
 - **`oc` wrapper:** `install.sh` writes `~/.local/bin/oc` as `exec python3 -m opencode_launcher.cli "$@"` to avoid pyenv shim issues.
-- **Terminator PID quirk:** Terminator forks and exits immediately, so the returned PID may not reflect the actual running session. Instance tracking handles stale PIDs gracefully via `is_pid_alive_and_same()` which checks process start time to detect PID reuse.
 - **File locking:** All JSON file operations use `fcntl.flock()` to prevent race conditions.
 
 ## Agent Templates

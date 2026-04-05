@@ -345,7 +345,7 @@ def cmd_launch(args):
         if not available:
             print(f"{_red('❌')} No supported terminal emulators found!")
             print(
-                "   Install one of: terminator, gnome-terminal, konsole, kitty, xterm"
+                "   Install one of: gnome-terminal, konsole, kitty, x-terminal-emulator, xterm"
             )
             return 1
         if len(available) == 1:
@@ -423,14 +423,18 @@ def cmd_launch(args):
             try:
                 existing = json.loads(opencode_json.read_text())
                 providers = existing.get("provider", {})
-                has_ollama = any(
-                    "localhost:11434" in str(v.get("options", {}).get("baseURL", ""))
-                    for v in providers.values()
-                )
-                if not has_ollama:
+                if "ollama" in providers:
+                    ollama_provider = providers["ollama"]
+                    models = ollama_provider.get("models", {})
+                    if model not in models:
+                        models[model] = {"name": model}
+                        ollama_provider["models"] = models
+                        opencode_json.write_text(json.dumps(existing, indent=2))
+                        print(f"  ℹ️  Added model '{model}' to Ollama provider config")
+                else:
                     print(f"  ⚠️  {opencode_json} exists but no Ollama provider")
-            except (json.JSONDecodeError, IOError):
-                pass
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"  ⚠️  Could not update opencode.json: {e}")
 
     print(f"\n{_green('🚀')} Launching {count} instance(s)...")
     print(f"   Model:     {model_type}:{model}")
@@ -447,10 +451,6 @@ def cmd_launch(args):
                 pid, model, directory, agent_slug or "", terminal, model_type
             )
             print(f"  {_green('✅')} Instance {iid} started (PID {pid})")
-            if terminal == "terminator":
-                print(
-                    f"    ℹ️  Note: Terminator forks immediately; PID may show as stale. Use 'oc status' to verify."
-                )
         else:
             print(f"  {_red('❌')} Failed to launch instance {i + 1}")
 

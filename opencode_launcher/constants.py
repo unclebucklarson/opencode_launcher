@@ -27,7 +27,13 @@ MAX_SESSIONS = 10
 OLLAMA_MAX_RETRIES = 3
 OLLAMA_RETRY_BACKOFF = 2.0
 
-TERMINAL_PREFERENCES = ["terminator", "gnome-terminal", "konsole", "kitty", "xterm"]
+TERMINAL_PREFERENCES = [
+    "gnome-terminal",
+    "konsole",
+    "kitty",
+    "x-terminal-emulator",
+    "xterm",
+]
 
 BANNER = r"""
   ___                    ____          _

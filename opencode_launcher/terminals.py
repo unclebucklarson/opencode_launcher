@@ -42,18 +42,7 @@ def build_launch_command(
     """Build the command to launch OpenCode in a new terminal window."""
     wd = str(Path(working_dir).expanduser().resolve())
 
-    if terminal == "terminator":
-        return [
-            "terminator",
-            "--new-tab",
-            "-T",
-            title,
-            "-x",
-            "bash",
-            "-c",
-            f"cd '{wd}' && {opencode_cmd}; exec bash",
-        ]
-    elif terminal == "gnome-terminal":
+    if terminal == "gnome-terminal":
         return [
             "gnome-terminal",
             "--title",
@@ -89,16 +78,6 @@ def build_launch_command(
             "-c",
             f"{opencode_cmd}; exec bash",
         ]
-    elif terminal == "xterm":
-        return [
-            "xterm",
-            "-T",
-            title,
-            "-e",
-            "bash",
-            "-c",
-            f"cd '{wd}' && {opencode_cmd}; exec bash",
-        ]
     else:
         return [
             terminal,
@@ -118,9 +97,6 @@ def launch_in_terminal(
     """
     Launch a command in a new terminal window.
     Returns the PID of the terminal process, or None on failure.
-    Note: Some terminals (terminator) fork and exit immediately, so the returned
-    PID may not reflect the actual running session. Instance tracking considers
-    this and handles stale PIDs gracefully.
     """
     cmd = build_launch_command(terminal, title, working_dir, opencode_cmd)
     log.info("Launching: %s", " ".join(cmd))
