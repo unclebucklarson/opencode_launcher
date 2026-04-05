@@ -2,9 +2,9 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Agent template management."""
+
 import logging
 from pathlib import Path
-from typing import Optional
 
 from .constants import AGENTS_DIR
 
@@ -18,13 +18,15 @@ def list_agents() -> list[dict]:
         return agents
     for f in sorted(AGENTS_DIR.glob("*.md")):
         meta = parse_agent_frontmatter(f)
-        agents.append({
-            "slug": f.stem,
-            "file": str(f),
-            "name": meta.get("name", f.stem),
-            "description": meta.get("description", ""),
-            "temperature": meta.get("temperature", 0.5),
-        })
+        agents.append(
+            {
+                "slug": f.stem,
+                "file": str(f),
+                "name": meta.get("name", f.stem),
+                "description": meta.get("description", ""),
+                "temperature": meta.get("temperature", 0.5),
+            }
+        )
     return agents
 
 
@@ -33,7 +35,7 @@ def get_agent_slugs() -> list[str]:
     return [a["slug"] for a in list_agents()]
 
 
-def get_agent_path(slug: str) -> Optional[Path]:
+def get_agent_path(slug: str) -> Path | None:
     """Get the file path for an agent by slug."""
     path = AGENTS_DIR / f"{slug}.md"
     return path if path.exists() else None
@@ -60,6 +62,9 @@ def parse_agent_frontmatter(filepath: Path) -> dict:
         if ":" in line:
             key, _, value = line.partition(":")
             value = value.strip()
+            # Strip surrounding quotes if present
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
             # Try to parse numbers
             try:
                 value = float(value)

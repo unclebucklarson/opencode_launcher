@@ -14,6 +14,13 @@ The complete guide to every `oc` command, flag, and option.
 - [oc resume](#oc-resume)
 - [oc list-agents](#oc-list-agents)
 - [oc list-models](#oc-list-models)
+- [oc init](#oc-init)
+- [oc restart](#oc-restart)
+- [oc logs](#oc-logs)
+- [oc config-save](#oc-config-save)
+- [oc config-load](#oc-config-load)
+- [oc sessions](#oc-sessions)
+- [oc ollama](#oc-ollama)
 
 ---
 
@@ -25,6 +32,7 @@ These flags work with any command:
 |------|-------------|
 | `-v`, `--verbose` | Enable debug logging |
 | `--version` | Show version number and exit |
+| `--dry-run` | Preview what would happen without executing |
 | `-h`, `--help` | Show help message and exit |
 
 ```bash
@@ -32,6 +40,7 @@ oc --version      # Print version
 oc -v launch      # Launch with debug output
 oc --help         # Show global help
 oc launch --help  # Show help for 'launch' command
+oc --dry-run launch -m qwen2.5-coder:32b -d ~/project  # Preview launch
 ```
 
 ---
@@ -57,6 +66,8 @@ oc launch [OPTIONS]
 | `-a` | `--agent SLUG` | Agent template slug (e.g., `coding`) |
 | `-t` | `--terminal NAME` | Terminal emulator to use |
 | `-n` | `--count N` | Number of instances to launch (default: 1) |
+| | `--dry-run` | Preview what would be launched |
+| | `--no-hooks` | Skip pre/post launch hooks |
 
 #### Modes of Operation
 
@@ -64,7 +75,7 @@ oc launch [OPTIONS]
 ```bash
 oc launch
 ```
-Launches the TUI wizard that walks you through model source, model, directory, agent, and terminal selection.
+Launches the TUI wizard that walks you through model source, model, directory, agent, and terminal selection. Model selection now includes typeahead filtering for quick searching.
 
 ##### Config File Mode
 ```bash
@@ -83,6 +94,12 @@ Pass settings directly. Missing required fields trigger interactive prompts for 
 oc launch --config base.json -d ~/src/override_dir
 ```
 CLI flags override config file values.
+
+##### Dry Run Mode
+```bash
+oc launch --dry-run -m qwen2.5-coder:32b -d ~/src/project -a coding -n 3
+```
+Shows exactly what would be launched without actually opening any terminals.
 
 #### Examples
 
@@ -107,6 +124,9 @@ oc launch --config ~/configs/base.json -d ~/src/different_project
 
 # Specific terminal
 oc launch -m qwen2.5-coder:32b -d . -t gnome-terminal
+
+# Dry run — preview without launching
+oc launch --dry-run -m qwen2.5-coder:32b -d ~/src/myapp -a coding
 ```
 
 ---
@@ -304,6 +324,292 @@ oc list-models
 
 ---
 
+### `oc init`
+
+Generate a default configuration file interactively.
+
+#### Synopsis
+
+```bash
+oc init [OPTIONS]
+```
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `-o`, `--output FILE` | Path to write the config (default: `~/.config/opencode-launcher/config.json`) |
+| `--preset NAME` | Start from a named preset instead of blank |
+
+#### Details
+
+- Walks through all config fields with sensible defaults
+- Validates inputs as you go
+- Can be used to create project-specific configs
+
+#### Examples
+
+```bash
+# Interactive wizard for default config
+oc init
+
+# Save to a specific location
+oc init -o ~/configs/myproject.json
+
+# Start from a preset and customize
+oc init --preset data-science
+```
+
+---
+
+### `oc restart`
+
+Restart a stopped instance with the same settings.
+
+#### Synopsis
+
+```bash
+oc restart [INSTANCE_ID]
+```
+
+#### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `INSTANCE_ID` | No | The instance ID to restart. If omitted, shows an interactive picker of stopped instances. |
+
+#### Details
+
+- Only works for instances that have been stopped (not killed)
+- Reuses the same model, directory, agent, and terminal settings
+- Creates a new instance ID and PID
+
+#### Examples
+
+```bash
+# Interactive — pick from stopped instances
+oc restart
+
+# Direct — restart by ID
+oc restart a3f7b2c1
+```
+
+---
+
+### `oc logs`
+
+View recent output from a running or recently stopped instance.
+
+#### Synopsis
+
+```bash
+oc logs [INSTANCE_ID] [OPTIONS]
+```
+
+#### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `INSTANCE_ID` | No | The instance ID. If omitted, shows an interactive picker. |
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `-n`, `--lines N` | Number of lines to show (default: 50) |
+| `-f`, `--follow` | Follow output in real-time (like `tail -f`) |
+
+#### Details
+
+- Shows the most recent output from the instance's terminal log
+- Only available for instances that were launched with logging enabled
+- Logs are stored in `~/.config/opencode-launcher/logs/`
+
+#### Examples
+
+```bash
+# Interactive — pick an instance
+oc logs
+
+# Direct — view logs by ID
+oc logs a3f7b2c1
+
+# Show last 100 lines
+oc logs a3f7b2c1 -n 100
+
+# Follow output in real-time
+oc logs a3f7b2c1 -f
+```
+
+---
+
+### `oc config-save`
+
+Save the current launch settings as a named config preset.
+
+#### Synopsis
+
+```bash
+oc config-save NAME [OPTIONS]
+```
+
+#### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `NAME` | Yes | Name for the preset (alphanumeric + hyphens) |
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `-m`, `--model NAME` | Model name |
+| `--model-type TYPE` | `local` or `cloud` |
+| `-d`, `--dir PATH` | Working directory |
+| `-a`, `--agent SLUG` | Agent template slug |
+| `-t`, `--terminal NAME` | Terminal emulator |
+
+#### Examples
+
+```bash
+# Save current interactive settings
+oc config-save my-project
+
+# Save with explicit settings
+oc config-save backend -m qwen2.5-coder:32b -d ~/src/backend -a coding
+
+# List all saved presets
+oc config-save --list
+```
+
+---
+
+### `oc config-load`
+
+Load a saved config preset and launch with it.
+
+#### Synopsis
+
+```bash
+oc config-load NAME [OPTIONS]
+```
+
+#### Arguments
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `NAME` | Yes | Name of the preset to load |
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `--override KEY=VALUE` | Override a specific setting |
+| `--delete` | Delete the preset instead of loading it |
+
+#### Examples
+
+```bash
+# Load and launch with a preset
+oc config-load my-project
+
+# Load preset but override the directory
+oc config-load backend -d ~/src/backend-v2
+
+# Delete a preset
+oc config-load old-project --delete
+
+# List all presets
+oc config-load --list
+```
+
+---
+
+### `oc sessions`
+
+Manage session history.
+
+#### Synopsis
+
+```bash
+oc sessions [OPTIONS]
+```
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `--clear` | Clear all session history |
+| `--export FILE` | Export sessions to a JSON file |
+| `--import FILE` | Import sessions from a JSON file |
+
+#### Details
+
+- Shows all saved sessions (beyond the last 10 used by `oc resume`)
+- Sessions are kept in `~/.config/opencode-launcher/sessions.json`
+- Max 10 sessions stored (oldest are automatically pruned)
+
+#### Examples
+
+```bash
+# View session history
+oc sessions
+
+# Clear all history
+oc sessions --clear
+
+# Export for backup
+oc sessions --export ~/backup/sessions.json
+
+# Import from backup
+oc sessions --import ~/backup/sessions.json
+```
+
+---
+
+### `oc ollama`
+
+Manage Ollama models directly from the launcher.
+
+#### Synopsis
+
+```bash
+oc ollama SUBCOMMAND [OPTIONS]
+```
+
+#### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List available local models (alias for `oc list-models`) |
+| `pull MODEL` | Pull a model from Ollama |
+| `rm MODEL` | Remove a local model |
+| `info MODEL` | Show details about a model |
+
+#### Options
+
+| Flag | Description |
+|------|-------------|
+| `--timeout SECONDS` | Timeout for API requests (default: 30) |
+
+#### Examples
+
+```bash
+# List models
+oc ollama list
+
+# Pull a new model
+oc ollama pull qwen2.5-coder:32b
+
+# Remove a model
+oc ollama rm deepseek-coder:33b
+
+# Show model info
+oc ollama info qwen2.5-coder:32b
+```
+
+---
+
 ### Command Quick Reference
 
 ```
@@ -312,14 +618,24 @@ oc launch -c config.json                      # From config
 oc launch -m MODEL -d DIR -a AGENT            # Direct flags
 oc launch -m MODEL -d DIR -n 3                # Multiple instances
 oc launch -m MODEL --model-type cloud -d DIR  # Cloud model
+oc launch --dry-run -m MODEL -d DIR           # Preview without launching
 oc status                                     # Show running instances
 oc stop                                       # Interactive stop
 oc stop INSTANCE_ID                           # Stop by ID
 oc kill-all                                   # Stop everything
+oc restart                                    # Restart a stopped instance
 oc resume                                     # Resume from history
 oc resume --new_location DIR                  # Resume elsewhere
 oc list-agents                                # Show agents
 oc list-models                                # Show Ollama models
+oc init                                       # Generate config interactively
+oc logs [ID]                                  # View instance logs
+oc config-save NAME                           # Save config preset
+oc config-load NAME                           # Load config preset
+oc sessions                                   # Manage session history
+oc ollama pull MODEL                          # Pull Ollama model
+oc ollama rm MODEL                            # Remove Ollama model
 oc --version                                  # Version info
 oc -v COMMAND                                 # Verbose mode
+oc --dry-run COMMAND                          # Dry run mode
 ```

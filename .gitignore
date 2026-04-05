@@ -5,3 +5,6 @@ dist/
 build/
 *.swp
 *.swo
+.venv/
+env/
+venv/

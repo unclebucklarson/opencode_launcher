@@ -36,7 +36,7 @@ fi
 # 5. Install as editable package
 echo "🔧 Installing oc command..."
 cd "${SCRIPT_DIR}"
-pip install --quiet -e .
+python3 -m pip install --quiet -e .
 
 # 6. Create reliable oc wrapper (avoids pyenv shim issues)
 BIN_DIR="${HOME}/.local/bin"

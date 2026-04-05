@@ -2,6 +2,7 @@
 # Licensed under the MIT License - see LICENSE file for details
 
 """Constants and paths for OpenCode Launcher."""
+
 import os
 from pathlib import Path
 
@@ -25,5 +26,5 @@ BANNER = r"""
 | | | | '_ \ / _ \ '_ \| |   / _ \ / _` |/ _ \
 | |_| | |_) |  __/ | | | |__| (_) | (_| |  __/
  \___/| .__/ \___|_| |_|\____\___/ \__,_|\___|
-      |_|           Launcher v1.0.0
+      |_|               Launcher
 """
