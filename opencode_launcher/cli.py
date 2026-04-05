@@ -383,7 +383,11 @@ def cmd_launch(args):
         if agent_path:
             oc_cmd_parts.extend(["--agent", str(agent_path)])
     if model:
-        oc_cmd_parts.extend(["--model", model])
+        # For local models, prefix with 'ollama/' provider
+        if model_type == "local":
+            oc_cmd_parts.extend(["--model", f"ollama/{model}"])
+        else:
+            oc_cmd_parts.extend(["--model", model])
     oc_cmd = " ".join(oc_cmd_parts)
 
     # For local models, ensure ~/.config/opencode/opencode.json has Ollama provider config
