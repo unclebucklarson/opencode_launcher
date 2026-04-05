@@ -46,6 +46,7 @@ from .config import (
 from .models import (
     is_ollama_running,
     get_ollama_models,
+    get_ollama_running_models,
     validate_local_model_constraint,
     pull_ollama_model,
     remove_ollama_model,
@@ -307,7 +308,7 @@ def cmd_launch(args):
 
     # --- Enforce local model constraint ---
     if model_type == "local":
-        running_models = get_running_local_models()
+        running_models = get_ollama_running_models()
         constraint_err = validate_local_model_constraint(model, running_models)
         if constraint_err:
             print(f"{_red('❌')} {constraint_err}")
@@ -460,15 +461,30 @@ def cmd_launch(args):
 
 
 def cmd_status(args):
-    """Show all running instances."""
-    instances = get_instances()
-    if not instances:
-        print("No running instances. 🍃")
-        return 0
-    print(f"\n{_bold('📊 Running Instances')} ({len(instances)}):\n")
-    for iid, info in instances.items():
-        print(format_instance(iid, info))
+    """Show all running instances and Ollama models."""
+    print(f"\n{_bold('📊 Status')}\n")
+
+    # Show Ollama running models
+    running_models = get_ollama_running_models()
+    if running_models:
+        print(f"{_cyan('🦙 Ollama Running Models')} ({len(running_models)}):")
+        for m in running_models:
+            print(f"  • {m}")
         print()
+    else:
+        print(f"{_yellow('🦙 Ollama:')} No models currently loaded\n")
+
+    # Show tracked instances (may be stale due to terminal forking)
+    instances = get_instances()
+    if instances:
+        print(f"{_bold('📋 Tracked Instances')} ({len(instances)}):")
+        for iid, info in instances.items():
+            print(format_instance(iid, info))
+            print()
+
+    if not running_models and not instances:
+        print("No running instances or loaded models. 🍃")
+
     return 0
 
 

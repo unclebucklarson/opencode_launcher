@@ -15,6 +15,7 @@ from .constants import (
     OLLAMA_PULL_ENDPOINT,
     OLLAMA_DELETE_ENDPOINT,
     OLLAMA_SHOW_ENDPOINT,
+    OLLAMA_PS_ENDPOINT,
     OLLAMA_MAX_RETRIES,
     OLLAMA_RETRY_BACKOFF,
 )
@@ -71,6 +72,15 @@ def get_ollama_models() -> list[str]:
         return []
     models = [m["name"] for m in result.get("models", [])]
     models.sort()
+    return models
+
+
+def get_ollama_running_models() -> list[str]:
+    """Query Ollama API and return list of currently loaded/running model names."""
+    result = _ollama_request(OLLAMA_PS_ENDPOINT, timeout=5)
+    if result is None:
+        return []
+    models = [m["name"] for m in result.get("models", [])]
     return models
 
 
