@@ -1,3 +1,6 @@
+# Copyright (c) 2026 csb (unclebucklarson)
+# Licensed under the MIT License - see LICENSE file for details
+
 """Setup script for OpenCode Launcher."""
 from setuptools import setup, find_packages
 from pathlib import Path

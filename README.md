@@ -1,5 +1,7 @@
 # OpenCode Launcher (`oc`)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A production-ready CLI tool for launching, managing, and orchestrating multiple [OpenCode](https://opencode.ai) instances from your terminal.
 
 ## Features
@@ -176,3 +178,9 @@ When using local Ollama models, **all running instances must use the same model*
 **Instance shows as running but terminal is closed** — Run `oc status` (auto-cleans stale PIDs)
 
 **`oc` command not found after install** — Add to PATH: `export PATH="${HOME}/.local/bin:${PATH}"`
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2026 csb (unclebucklarson)
