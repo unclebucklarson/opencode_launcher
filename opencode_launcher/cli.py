@@ -345,9 +345,7 @@ def cmd_launch(args):
         available = detect_terminals()
         if not available:
             print(f"{_red('❌')} No supported terminal emulators found!")
-            print(
-                "   Install one of: gnome-terminal, konsole, kitty, x-terminal-emulator, xterm"
-            )
+            print("   Install gnome-terminal, or specify a terminal with --terminal")
             return 1
         if len(available) == 1:
             terminal = available[0]
