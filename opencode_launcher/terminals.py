@@ -118,6 +118,9 @@ def launch_in_terminal(
     """
     Launch a command in a new terminal window.
     Returns the PID of the terminal process, or None on failure.
+    Note: Some terminals (terminator) fork and exit immediately, so the returned
+    PID may not reflect the actual running session. Instance tracking considers
+    this and handles stale PIDs gracefully.
     """
     cmd = build_launch_command(terminal, title, working_dir, opencode_cmd)
     log.info("Launching: %s", " ".join(cmd))

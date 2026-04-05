@@ -1,0 +1,13 @@
+{
+  "agents": {
+    "coder": {
+      "model": "qwen3-coder:30b"
+    }
+  },
+  "providers": {
+    "openai": {
+      "apiKey": "dummy",
+      "baseURL": "http://localhost:11434/v1"
+    }
+  }
+}

@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import itertools
+import json
 import logging
 import os
 import sys
@@ -175,13 +176,15 @@ def _ask_select_filtered(
     filterable: bool = True,
 ) -> str:
     """Prompt user to select from a list, with optional typeahead filtering."""
-    if _HAS_QUESTIONARY and filterable and len(choices) > 5:
-        return questionary.autocomplete(
-            message,
-            choices=choices,
-            style=_Q_STYLE,
-            default=default if default in choices else None,
-        ).ask() or (sys.exit(0) or "")
+    if _HAS_QUESTIONARY and filterable and len(choices) > 20:
+        kwargs = {
+            "message": message,
+            "choices": choices,
+            "style": _Q_STYLE,
+        }
+        if default is not None and default in choices:
+            kwargs["default"] = default
+        return questionary.autocomplete(**kwargs).ask() or (sys.exit(0) or "")
     return _ask_select(message, choices, default)
 
 
@@ -383,6 +386,39 @@ def cmd_launch(args):
         oc_cmd_parts.extend(["--model", model])
     oc_cmd = " ".join(oc_cmd_parts)
 
+    # For local models, ensure .opencode.json has Ollama provider config
+    if model_type == "local" and model:
+        opencode_json = Path(directory) / ".opencode.json"
+        if not opencode_json.exists():
+            # Try using ollama as the provider name if supported, otherwise use openai
+            ollama_config = {
+                "agents": {"coder": {"model": model}},
+                "providers": {
+                    "ollama": {"url": "http://localhost:11434"},
+                    "openai": {
+                        "apiKey": "dummy",
+                        "baseURL": "http://localhost:11434/v1",
+                    },
+                },
+            }
+            try:
+                opencode_json.write_text(json.dumps(ollama_config, indent=2))
+                print(f"  ℹ️  Created {opencode_json} with Ollama config")
+            except IOError as e:
+                print(f"  ⚠️  Could not create .opencode.json: {e}")
+        else:
+            try:
+                existing = json.loads(opencode_json.read_text())
+                has_ollama = any(
+                    "localhost:11434" in str(v.get("url", ""))
+                    or "localhost:11434" in str(v.get("baseURL", ""))
+                    for v in existing.get("providers", {}).values()
+                )
+                if not has_ollama:
+                    print(f"  ⚠️  {opencode_json} exists but no Ollama provider")
+            except (json.JSONDecodeError, IOError):
+                pass
+
     print(f"\n{_green('🚀')} Launching {count} instance(s)...")
     print(f"   Model:     {model_type}:{model}")
     print(f"   Directory: {directory}")
@@ -398,6 +434,10 @@ def cmd_launch(args):
                 pid, model, directory, agent_slug or "", terminal, model_type
             )
             print(f"  {_green('✅')} Instance {iid} started (PID {pid})")
+            if terminal == "terminator":
+                print(
+                    f"    ℹ️  Note: Terminator forks immediately; PID may show as stale. Use 'oc status' to verify."
+                )
         else:
             print(f"  {_red('❌')} Failed to launch instance {i + 1}")
 
