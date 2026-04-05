@@ -7,8 +7,6 @@ import fcntl
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
 
 from .constants import SESSIONS_FILE, MAX_SESSIONS, CONFIG_DIR
 
@@ -71,6 +69,18 @@ def get_sessions() -> list[dict]:
     sessions = load_sessions()
     sessions.reverse()
     return sessions
+
+
+def clear_sessions():
+    """Clear all session history."""
+    _ensure_file()
+    with open(SESSIONS_FILE, "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump([], f)
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def format_session(session: dict, index: int) -> str:

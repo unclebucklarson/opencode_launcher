@@ -10,6 +10,8 @@ from .constants import AGENTS_DIR
 
 log = logging.getLogger(__name__)
 
+REQUIRED_FIELDS = ["name", "description"]
+
 
 def list_agents() -> list[dict]:
     """List all available agent templates with their metadata."""
@@ -18,6 +20,7 @@ def list_agents() -> list[dict]:
         return agents
     for f in sorted(AGENTS_DIR.glob("*.md")):
         meta = parse_agent_frontmatter(f)
+        warnings = validate_agent(meta, f)
         agents.append(
             {
                 "slug": f.stem,
@@ -25,6 +28,7 @@ def list_agents() -> list[dict]:
                 "name": meta.get("name", f.stem),
                 "description": meta.get("description", ""),
                 "temperature": meta.get("temperature", 0.5),
+                "warnings": warnings,
             }
         )
     return agents
@@ -74,6 +78,25 @@ def parse_agent_frontmatter(filepath: Path) -> dict:
                 pass
             meta[key.strip()] = value
     return meta
+
+
+def validate_agent(meta: dict, filepath: Path) -> list[str]:
+    """Validate agent frontmatter. Returns list of warning messages."""
+    warnings = []
+    for field in REQUIRED_FIELDS:
+        if field not in meta:
+            warnings.append(f"Missing required field: '{field}' in {filepath.name}")
+    temp = meta.get("temperature")
+    if temp is not None:
+        try:
+            t = float(temp)
+            if t < 0 or t > 2:
+                warnings.append(
+                    f"Temperature {t} out of range [0, 2] in {filepath.name}"
+                )
+        except (ValueError, TypeError):
+            warnings.append(f"Invalid temperature value '{temp}' in {filepath.name}")
+    return warnings
 
 
 def format_agent(agent: dict) -> str:

@@ -10,10 +10,13 @@ All the knobs, switches, and dials for OpenCode Launcher.
 - [Config File Location](#config-file-location)
 - [Config Fields Reference](#config-fields-reference)
 - [Environment Variables](#environment-variables)
+- [Environment File (.env)](#environment-file-env)
 - [Model Types](#model-types)
 - [Model Constraint](#model-constraint)
 - [Terminal Preferences](#terminal-preferences)
 - [Config Precedence](#config-precedence)
+- [Config Presets](#config-presets)
+- [JSON Schema](#json-schema)
 
 ---
 
@@ -109,6 +112,18 @@ EOF
 oc launch -c ~/oc-configs/data-analysis.json
 ```
 
+#### Generate Config Interactively
+
+Use `oc init` to create a config file with an interactive wizard:
+
+```bash
+# Generate default config
+oc init
+
+# Save to a custom location
+oc init -o ~/configs/myproject.json
+```
+
 ---
 
 ### Config Fields Reference
@@ -127,7 +142,7 @@ When loading a config file, the launcher validates:
 - **directory** — Checks that the path exists. Warns if it doesn't.
 - **agent** — Checks that a matching `.md` template file exists in `~/.config/opencode-launcher/agents/`.
 
-Validation warnings don't prevent launch — they're informational. The wizard will prompt for corrections interactively.
+Validation errors are fatal — the launch will abort if the config is invalid.
 
 ---
 
@@ -148,6 +163,35 @@ oc launch
 # Connect to remote Ollama
 export OLLAMA_API_URL="http://gpu-server:11434"
 oc list-models
+```
+
+---
+
+### Environment File (.env)
+
+Place a `.env` file in your config directory (`~/.config/opencode-launcher/.env`) to override environment variables:
+
+```bash
+# ~/.config/opencode-launcher/.env
+OLLAMA_API_URL=http://gpu-server:11434
+OC_CONFIG_DIR=/data/opencode-config
+```
+
+The `.env` file is loaded on every command and takes precedence over system environment variables but is overridden by explicit CLI flags.
+
+#### Format
+
+- One `KEY=VALUE` per line
+- Lines starting with `#` are comments
+- Blank lines are ignored
+- Values can be quoted (quotes are stripped)
+
+```bash
+# Database connection
+OLLAMA_API_URL="http://localhost:11434"
+
+# API key (never commit this!)
+# OPENAI_API_KEY=sk-...
 ```
 
 ---
@@ -228,7 +272,8 @@ The launcher detects terminal emulators in this priority order:
 1. **terminator** (preferred)
 2. **gnome-terminal**
 3. **konsole**
-4. **xterm** (fallback)
+4. **kitty**
+5. **xterm** (fallback)
 
 If only one terminal is detected, it's used automatically without prompting.
 
@@ -245,6 +290,7 @@ Each terminal is launched differently:
 | terminator | Opens new tab with `--new-tab` |
 | gnome-terminal | Opens new window with `--working-directory` |
 | konsole | Opens with `--workdir` |
+| kitty | Opens new window with `--working-directory` |
 | xterm | Opens with `-e` to execute command |
 
 All terminals run `opencode` followed by `exec bash` to keep the terminal open after OpenCode exits.
@@ -258,7 +304,8 @@ When multiple sources provide the same setting, this precedence applies (highest
 ```
 1. CLI flags          (highest priority)
 2. Config file        (--config flag)
-3. Interactive prompt  (fallback for missing fields)
+3. Default config     (~/.config/opencode-launcher/config.json)
+4. Interactive prompt  (fallback for missing fields)
 ```
 
 #### Example
@@ -268,6 +315,69 @@ When multiple sources provide the same setting, this precedence applies (highest
 # CLI flag overrides it to ~/src/project-b
 oc launch --config myconfig.json -d ~/src/project-b
 # → Uses ~/src/project-b
+```
+
+---
+
+### Config Presets
+
+Save and load named configuration presets for quick access:
+
+```bash
+# Save current settings as a preset
+oc config-save my-project
+
+# Load a preset
+oc config-load my-project
+
+# List all presets
+oc config-load --list
+
+# Delete a preset
+oc config-load my-project --delete
+```
+
+Presets are stored in `~/.config/opencode-launcher/presets/` as individual JSON files.
+
+#### Team Sharing
+
+Share presets with teammates via export/import:
+
+```bash
+# Export a preset to base64
+oc config-save my-project --export
+
+# Import from base64 string
+oc config-load --import "eyJtb2RlbCI6ICJxd2Vu..."
+```
+
+---
+
+### JSON Schema
+
+The launcher validates config files against this JSON schema:
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "model": { "type": "string" },
+    "model_type": { "type": "string", "enum": ["local", "cloud"] },
+    "directory": { "type": "string" },
+    "agent": { "type": "string" },
+    "terminal": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+```
+
+Validation errors include the field name and a description of what's wrong:
+
+```
+❌ Config validation failed:
+  • model_type: must be "local" or "cloud", got "ollama"
+  • directory: path does not exist: /nonexistent/path
 ```
 
 ---

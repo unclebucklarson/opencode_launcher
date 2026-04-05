@@ -11,9 +11,8 @@ import signal
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
-from .constants import INSTANCES_FILE, CONFIG_DIR
+from .constants import INSTANCES_FILE, CONFIG_DIR, STOPPED_INSTANCES_FILE
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +21,32 @@ def _ensure_file():
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     if not INSTANCES_FILE.exists():
         INSTANCES_FILE.write_text("{}")
+    if not STOPPED_INSTANCES_FILE.exists():
+        STOPPED_INSTANCES_FILE.write_text("{}")
+
+
+def _load_stopped() -> dict:
+    _ensure_file()
+    try:
+        with open(STOPPED_INSTANCES_FILE) as f:
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                return json.load(f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+
+def _save_stopped(data: dict):
+    _ensure_file()
+    with open(STOPPED_INSTANCES_FILE, "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump(data, f, indent=2)
+            f.flush()
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def _load() -> dict:
@@ -57,7 +82,7 @@ def is_pid_alive(pid: int) -> bool:
         return False
 
 
-def is_pid_alive_and_same(pid: int, start_time: Optional[str] = None) -> bool:
+def is_pid_alive_and_same(pid: int, start_time: str | None = None) -> bool:
     """Check if PID is alive and (optionally) started after the given time.
 
     This helps detect PID reuse: if the process at this PID started before
@@ -145,11 +170,41 @@ def stop_instance(instance_id: str) -> tuple[bool, str]:
         )
     try:
         os.kill(pid, signal.SIGTERM)
+        # Save to stopped instances for potential restart
+        stopped = _load_stopped()
+        stopped[instance_id] = info
+        _save_stopped(stopped)
         del data[instance_id]
         _save(data)
         return True, f"Instance '{instance_id}' (PID {pid}) terminated."
     except OSError as e:
         return False, f"Failed to stop PID {pid}: {e}"
+
+
+def get_stopped_instances() -> dict:
+    """Get all stopped instances available for restart."""
+    return _load_stopped()
+
+
+def restart_instance(instance_id: str) -> dict | None:
+    """Get a stopped instance's config for restart. Returns config dict or None."""
+    stopped = _load_stopped()
+    if instance_id not in stopped:
+        return None
+    info = stopped[instance_id]
+    del stopped[instance_id]
+    _save_stopped(stopped)
+    return info
+
+
+def remove_stopped_instance(instance_id: str) -> bool:
+    """Remove a stopped instance from the restart list."""
+    stopped = _load_stopped()
+    if instance_id in stopped:
+        del stopped[instance_id]
+        _save_stopped(stopped)
+        return True
+    return False
 
 
 def kill_all() -> list[str]:

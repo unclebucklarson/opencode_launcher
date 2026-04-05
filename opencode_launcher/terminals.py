@@ -7,7 +7,6 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from .constants import TERMINAL_PREFERENCES
 
@@ -23,7 +22,7 @@ def detect_terminals() -> list[str]:
     return available
 
 
-def get_preferred_terminal(available: list[str]) -> Optional[str]:
+def get_preferred_terminal(available: list[str]) -> str | None:
     """Return the preferred terminal from available list."""
     if not available:
         return None
@@ -78,6 +77,18 @@ def build_launch_command(
             "-c",
             f"{opencode_cmd}; exec bash",
         ]
+    elif terminal == "kitty":
+        return [
+            "kitty",
+            "--title",
+            title,
+            "--directory",
+            wd,
+            "--",
+            "bash",
+            "-c",
+            f"{opencode_cmd}; exec bash",
+        ]
     elif terminal == "xterm":
         return [
             "xterm",
@@ -103,7 +114,7 @@ def launch_in_terminal(
     title: str,
     working_dir: str,
     opencode_cmd: str,
-) -> Optional[int]:
+) -> int | None:
     """
     Launch a command in a new terminal window.
     Returns the PID of the terminal process, or None on failure.
