@@ -1,3 +1,6 @@
+# Copyright (c) 2026 csb (unclebucklarson)
+# Licensed under the MIT License - see LICENSE file for details
+
 """Instance tracking - manage running OpenCode instances."""
 import json
 import logging

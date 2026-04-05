@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# Copyright (c) 2026 csb (unclebucklarson)
+# Licensed under the MIT License - see LICENSE file for details
+
 """
 OpenCode Launcher CLI - Launch and manage OpenCode instances like a pro.
 

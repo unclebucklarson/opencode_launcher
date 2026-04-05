@@ -1,3 +1,6 @@
+# Copyright (c) 2026 csb (unclebucklarson)
+# Licensed under the MIT License - see LICENSE file for details
+
 """Configuration management for OpenCode Launcher."""
 import json
 import logging

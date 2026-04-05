@@ -1,3 +1,6 @@
+# Copyright (c) 2026 csb (unclebucklarson)
+# Licensed under the MIT License - see LICENSE file for details
+
 """Constants and paths for OpenCode Launcher."""
 import os
 from pathlib import Path
