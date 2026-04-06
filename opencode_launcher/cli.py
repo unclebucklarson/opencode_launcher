@@ -223,6 +223,7 @@ def _ask_select_filtered(
 ) -> str:
     """Prompt user to select from a list, with optional typeahead filtering."""
     if _HAS_QUESTIONARY and filterable and len(choices) > 20:
+        print(f"  {_cyan('Tip:')} Press Tab to see all options, type to filter")
         kwargs = {
             "message": message,
             "choices": choices,
@@ -321,7 +322,7 @@ def cmd_launch(args):
     if not model_type:
         model_type = _ask_select(
             "Model source?",
-            choices=["local (Ollama)", "cloud (manual entry)"],
+            choices=["local (Ollama)", "cloud (OpenCode Zen)"],
             default="local (Ollama)",
         )
         model_type = "local" if "local" in model_type else "cloud"
@@ -436,11 +437,14 @@ def cmd_launch(args):
         if agent_path:
             oc_cmd_parts.extend(["--agent", str(agent_path)])
     if model:
-        # For local models, prefix with 'ollama/' provider
         if model_type == "local":
             oc_cmd_parts.extend(["--model", f"ollama/{model}"])
         else:
-            oc_cmd_parts.extend(["--model", model])
+            parts = model.split("/", 1)
+            if len(parts) == 2:
+                oc_cmd_parts.extend(["--model", model])
+            else:
+                oc_cmd_parts.extend(["--model", f"opencode/{model}"])
     oc_cmd = " ".join(oc_cmd_parts)
 
     # Ensure ~/.config/opencode/opencode.json has provider config
