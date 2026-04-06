@@ -91,15 +91,14 @@ oc launch -m qwen2.5-coder:32b -d ~/src/backend-api -a qa
 
 ### ☁️ Cloud model — frontend work
 ```bash
-# Use a cloud model with the explicit --model-type cloud flag
-# Interactive selection shows available Zen models
+# Interactive selection shows available Zen models (press Tab to see all)
 oc launch --model-type cloud -d ~/src/frontend-app -a coding
 
 # Or specify a Zen model directly
 oc launch -m claude-sonnet-4-5 --model-type cloud -d ~/src/frontend-app -a coding
 ```
 
-> 💡 **Tip:** Cloud models are fetched from OpenCode Zen. Get your API key at https://opencode.ai/auth
+> 💡 **Tip:** Cloud models are fetched from OpenCode Zen. If you don't have an API key, the launcher will prompt you to enter one. Get your key at https://opencode.ai/auth
 
 ### Launch from a config file
 ```bash
@@ -194,7 +193,7 @@ oc launch --config myproject.json
   "model_type": "local",
   "directory": "~/src/project1",
   "agent": "coding",
-  "terminal": "terminator"
+  "terminal": "gnome-terminal"
 }
 ```
 

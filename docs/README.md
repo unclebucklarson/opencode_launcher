@@ -74,6 +74,8 @@ That's it. You're dangerous now. For the full story, keep reading.
 | Ollama | Required for local models ([ollama.ai](https://ollama.ai)) |
 | OS | Linux (terminal detection relies on Linux emulators) |
 
+> **Note:** On systems with PEP 668 (externally managed Python), the installer creates a virtual environment in `.venv/` and the `oc` wrapper uses it automatically.
+
 ---
 
 ### File Layout

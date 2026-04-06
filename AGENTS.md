@@ -86,17 +86,20 @@ Env vars: `OC_CONFIG_DIR`, `OLLAMA_API_URL` (default `http://localhost:11434`).
 - Launch OpenCode instances in new terminal windows
 - Local Ollama model selection and validation
 - Single-model constraint enforcement via Ollama `/api/ps` API
-- Cloud model support (auto-configures provider in opencode.json)
+- Cloud model support with interactive model selection from OpenCode Zen
+- Zen API key check and prompt flow (saves to auth.json)
+- Model prefix handling: `ollama/` for local, `opencode/` for cloud
 - `oc status` shows running Ollama models (from API, not just PID tracking)
 - Agent template discovery and parsing
 - Session history and resume
 - Config file support
+- Autocomplete with Tab hint for model selection
 
 ### Known Limitations
 
 - Instance tracking via PID is unreliable (terminal forking) — use `oc status` which queries Ollama API
 - No ability to stop/kill running Ollama models from the launcher (must use `ollama stop` directly)
-- Cloud models require API keys to be set via `opencode /connect` before launch
+- Some Zen models may not load (model-specific issues, not launcher-related)
 
 ### Future Work
 
