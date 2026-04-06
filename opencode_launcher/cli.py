@@ -798,7 +798,14 @@ def cmd_restart(args):
         if agent_path:
             oc_cmd_parts.extend(["--agent", str(agent_path)])
     if model:
-        oc_cmd_parts.extend(["--model", model])
+        if model_type == "local":
+            oc_cmd_parts.extend(["--model", f"ollama/{model}"])
+        else:
+            parts = model.split("/", 1)
+            if len(parts) == 2:
+                oc_cmd_parts.extend(["--model", model])
+            else:
+                oc_cmd_parts.extend(["--model", f"opencode/{model}"])
     oc_cmd = " ".join(oc_cmd_parts)
 
     title = f"OpenCode [restart] - {agent_slug or 'default'} @ {Path(directory).name}"
